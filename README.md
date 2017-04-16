@@ -1,5 +1,7 @@
 # autotls
 
+[![Build Status](https://travis-ci.org/gin-gonic/autotls.svg?branch=master)](https://travis-ci.org/gin-gonic/autotls)
+
 Support Let's Encrypt for a Go server application.
 
 ## example
