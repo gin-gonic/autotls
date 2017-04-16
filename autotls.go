@@ -9,7 +9,7 @@ import (
 
 // Run support 1-line LetsEncrypt HTTPS servers
 func Run(r http.Handler, domain ...string) error {
-	return http.Serve(autocert.NewListener(domain), r)
+	return http.Serve(autocert.NewListener(domain...), r)
 }
 
 // RunWithManager support custom autocert manager

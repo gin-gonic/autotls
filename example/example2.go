@@ -1,11 +1,11 @@
 package main
 
 import (
-	"crypto/tls"
-	"net/http"
+	"log"
 
 	"github.com/gin-gonic/autotls"
 	"github.com/gin-gonic/gin"
+	"golang.org/x/crypto/acme/autocert"
 )
 
 func main() {
