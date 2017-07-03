@@ -1,6 +1,9 @@
 # autotls
 
-[![Build Status](https://travis-ci.org/gin-gonic/autotls.svg?branch=master)](https://travis-ci.org/gin-gonic/autotls)
+[![Build Status](https://travis-ci.org/gin-gonic/autotls.svg?branch=master)](https://travis-ci.org/gin-gonic/autotls) 
+[![Go Report Card](https://goreportcard.com/badge/github.com/gin-gonic/gin)](https://goreportcard.com/report/github.com/gin-gonic/gin)
+[![GoDoc](https://godoc.org/github.com/gin-gonic/gin?status.svg)](https://godoc.org/github.com/gin-gonic/gin)
+[![Join the chat at https://gitter.im/gin-gonic/gin](https://badges.gitter.im/Join%20Chat.svg)](https://gitter.im/gin-gonic/gin?utm_source=badge&utm_medium=badge&utm_campaign=pr-badge&utm_content=badge)
 
 Support Let's Encrypt for a Go server application.
 
