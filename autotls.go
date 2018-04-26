@@ -20,5 +20,7 @@ func RunWithManager(r http.Handler, m *autocert.Manager) error {
 		Handler:   r,
 	}
 
+	go http.ListenAndServe(":http", m.HTTPHandler(nil))
+
 	return s.ListenAndServeTLS("", "")
 }
