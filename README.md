@@ -11,7 +11,7 @@ Support Let's Encrypt for a Go server application.
 
 example for 1-line LetsEncrypt HTTPS servers.
 
-[embedmd]:# (example/example1.go go)
+[embedmd]:# (example/example1/example1.go go)
 ```go
 package main
 
@@ -36,7 +36,7 @@ func main() {
 
 example for custom autocert manager.
 
-[embedmd]:# (example/example2.go go)
+[embedmd]:# (example/example2/example2.go go)
 ```go
 package main
 
