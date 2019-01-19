@@ -8,12 +8,17 @@ go:
   - 1.10.x
   - master
 
+matrix:
+  fast_finish: true
+  include:
+  - go: 1.11.x
+    env: GO111MODULE=on
+
 git:
   depth: 3
 
 install:
-  - go get -v github.com/kardianos/govendor
-  - govendor sync
+  - if [[ "${GO111MODULE}" = "on" ]]; then go mod download; else go get -t -v ./...; fi
   - go get -u github.com/campoy/embedmd
 
 script:
