@@ -18,7 +18,7 @@ matrix:
     env: GO111MODULE=on
 
 git:
-  depth: 1q
+  depth: 1
 
 install:
   - if [[ "${GO111MODULE}" = "on" ]]; then go mod download; else go get -t -v ./...; fi
