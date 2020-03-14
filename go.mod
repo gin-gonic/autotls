@@ -1,6 +1,6 @@
 module github.com/gin-gonic/autotls
 
-go 1.13
+go 1.14
 
 require (
 	github.com/gin-gonic/gin v1.5.0
