@@ -19,7 +19,17 @@ func RunWithManager(r http.Handler, m *autocert.Manager) error {
 		Handler:   r,
 	}
 
-	go http.ListenAndServe(":http", m.HTTPHandler(nil))
+	go http.ListenAndServe(":http", m.HTTPHandler(http.HandlerFunc(redirect)))
 
 	return s.ListenAndServeTLS("", "")
+}
+
+func redirect(w http.ResponseWriter, req *http.Request) {
+	target := "https://" + req.Host + req.URL.Path
+
+	if len(req.URL.RawQuery) > 0 {
+		target += "?" + req.URL.RawQuery
+	}
+
+	http.Redirect(w, req, target, http.StatusTemporaryRedirect)
 }
