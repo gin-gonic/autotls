@@ -27,5 +27,5 @@ func RunWithManager(r http.Handler, m *autocert.Manager) error {
 func redirect(w http.ResponseWriter, req *http.Request) {
 	target := "https://" + req.Host + req.RequestURI
 
-	http.Redirect(w, req, target, http.StatusTemporaryRedirect)
+	http.Redirect(w, req, target, http.StatusMovedPermanently)
 }
