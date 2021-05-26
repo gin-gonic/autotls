@@ -8,6 +8,7 @@ import (
 
 // Run support 1-line LetsEncrypt HTTPS servers
 func Run(r http.Handler, domain ...string) error {
+	go http.ListenAndServe(":http", http.HandlerFunc(redirect))
 	return http.Serve(autocert.NewListener(domain...), r)
 }
 
