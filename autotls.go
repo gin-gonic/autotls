@@ -1,9 +1,10 @@
 package autotls
 
 import (
-	"net/http"
-
+	"crypto/tls"
 	"golang.org/x/crypto/acme/autocert"
+	"log"
+	"net/http"
 )
 
 // Run support 1-line LetsEncrypt HTTPS servers
@@ -14,14 +15,27 @@ func Run(r http.Handler, domain ...string) error {
 
 // RunWithManager support custom autocert manager
 func RunWithManager(r http.Handler, m *autocert.Manager) error {
+	return RunWithManagerAndTLSConfig(r, m, *m.TLSConfig())
+}
+
+// RunWithManagerAndTLSConfig support custom autocert manager and tls.Config
+func RunWithManagerAndTLSConfig(r http.Handler, m *autocert.Manager, tlsc tls.Config) error {
+	if m.Cache == nil {
+		var e error
+		m.Cache, e = getCacheDir()
+		if e != nil {
+			log.Println(e)
+		}
+	}
+	defaultTLSConfig := m.TLSConfig()
+	tlsc.GetCertificate = defaultTLSConfig.GetCertificate
+	tlsc.NextProtos = defaultTLSConfig.NextProtos
 	s := &http.Server{
 		Addr:      ":https",
-		TLSConfig: m.TLSConfig(),
+		TLSConfig: &tlsc,
 		Handler:   r,
 	}
-
 	go http.ListenAndServe(":http", m.HTTPHandler(http.HandlerFunc(redirect)))
-
 	return s.ListenAndServeTLS("", "")
 }
 
