@@ -1,6 +1,7 @@
 package autotls
 
 import (
+	"context"
 	"crypto/tls"
 	"log"
 	"net/http"
@@ -9,16 +10,51 @@ import (
 	"golang.org/x/sync/errgroup"
 )
 
-// Run support 1-line LetsEncrypt HTTPS servers
-func Run(r http.Handler, domain ...string) error {
+func run(ctx context.Context, r http.Handler, domain ...string) error {
 	var g errgroup.Group
+
+	s1 := &http.Server{
+		Addr:    ":http",
+		Handler: http.HandlerFunc(redirect),
+	}
+	s2 := &http.Server{
+		Handler: r,
+	}
+
 	g.Go(func() error {
-		return http.ListenAndServe(":http", http.HandlerFunc(redirect))
+		return s1.ListenAndServe()
 	})
 	g.Go(func() error {
-		return http.Serve(autocert.NewListener(domain...), r)
+		return s2.Serve(autocert.NewListener(domain...))
+	})
+
+	g.Go(func() error {
+		if ctx == nil {
+			return nil
+		}
+		<-ctx.Done()
+
+		var gShutdown errgroup.Group
+		gShutdown.Go(func() error {
+			return s1.Shutdown(context.Background())
+		})
+		gShutdown.Go(func() error {
+			return s2.Shutdown(context.Background())
+		})
+
+		return gShutdown.Wait()
 	})
 	return g.Wait()
+}
+
+// Run support 1-line LetsEncrypt HTTPS servers with graceful shutdown
+func RunWithContext(ctx context.Context, r http.Handler, domain ...string) error {
+	return run(ctx, r, domain...)
+}
+
+// Run support 1-line LetsEncrypt HTTPS servers
+func Run(r http.Handler, domain ...string) error {
+	return run(nil, r, domain...)
 }
 
 // RunWithManager support custom autocert manager
