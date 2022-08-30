@@ -12,7 +12,10 @@ import (
 
 type tlsContextKey string
 
-var ctxKey = tlsContextKey("autls")
+var (
+	ctxKey  = tlsContextKey("autls")
+	todoCtx = context.WithValue(context.Background(), ctxKey, "done")
+)
 
 func run(ctx context.Context, r http.Handler, domain ...string) error {
 	var g errgroup.Group
@@ -59,17 +62,16 @@ func RunWithContext(ctx context.Context, r http.Handler, domain ...string) error
 
 // Run support 1-line LetsEncrypt HTTPS servers
 func Run(r http.Handler, domain ...string) error {
-	ctx := context.WithValue(context.Background(), ctxKey, "done")
-	return run(ctx, r, domain...)
+	return run(todoCtx, r, domain...)
 }
 
 // RunWithManager support custom autocert manager
 func RunWithManager(r http.Handler, m *autocert.Manager) error {
-	return RunWithManagerAndTLSConfig(r, m, *m.TLSConfig())
+	return RunWithManagerAndTLSConfig(r, m, m.TLSConfig())
 }
 
 // RunWithManagerAndTLSConfig support custom autocert manager and tls.Config
-func RunWithManagerAndTLSConfig(r http.Handler, m *autocert.Manager, tlsc tls.Config) error {
+func RunWithManagerAndTLSConfig(r http.Handler, m *autocert.Manager, tlsc *tls.Config) error {
 	var g errgroup.Group
 	if m.Cache == nil {
 		var e error
@@ -83,7 +85,7 @@ func RunWithManagerAndTLSConfig(r http.Handler, m *autocert.Manager, tlsc tls.Co
 	tlsc.NextProtos = defaultTLSConfig.NextProtos
 	s := &http.Server{
 		Addr:      ":https",
-		TLSConfig: &tlsc,
+		TLSConfig: tlsc,
 		Handler:   r,
 	}
 	g.Go(func() error {
