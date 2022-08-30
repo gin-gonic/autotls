@@ -2,15 +2,23 @@ package autotls
 
 import (
 	"crypto/tls"
-	"golang.org/x/crypto/acme/autocert"
 	"log"
 	"net/http"
+
+	"golang.org/x/crypto/acme/autocert"
+	"golang.org/x/sync/errgroup"
 )
 
 // Run support 1-line LetsEncrypt HTTPS servers
 func Run(r http.Handler, domain ...string) error {
-	go http.ListenAndServe(":http", http.HandlerFunc(redirect))
-	return http.Serve(autocert.NewListener(domain...), r)
+	var g errgroup.Group
+	g.Go(func() error {
+		return http.ListenAndServe(":http", http.HandlerFunc(redirect))
+	})
+	g.Go(func() error {
+		return http.Serve(autocert.NewListener(domain...), r)
+	})
+	return g.Wait()
 }
 
 // RunWithManager support custom autocert manager
@@ -20,6 +28,7 @@ func RunWithManager(r http.Handler, m *autocert.Manager) error {
 
 // RunWithManagerAndTLSConfig support custom autocert manager and tls.Config
 func RunWithManagerAndTLSConfig(r http.Handler, m *autocert.Manager, tlsc tls.Config) error {
+	var g errgroup.Group
 	if m.Cache == nil {
 		var e error
 		m.Cache, e = getCacheDir()
@@ -35,8 +44,13 @@ func RunWithManagerAndTLSConfig(r http.Handler, m *autocert.Manager, tlsc tls.Co
 		TLSConfig: &tlsc,
 		Handler:   r,
 	}
-	go http.ListenAndServe(":http", m.HTTPHandler(http.HandlerFunc(redirect)))
-	return s.ListenAndServeTLS("", "")
+	g.Go(func() error {
+		return http.ListenAndServe(":http", m.HTTPHandler(http.HandlerFunc(redirect)))
+	})
+	g.Go(func() error {
+		return s.ListenAndServeTLS("", "")
+	})
+	return g.Wait()
 }
 
 func redirect(w http.ResponseWriter, req *http.Request) {
