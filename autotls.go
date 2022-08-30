@@ -10,6 +10,10 @@ import (
 	"golang.org/x/sync/errgroup"
 )
 
+type tlsContextKey string
+
+var ctxKey = tlsContextKey("autls")
+
 func run(ctx context.Context, r http.Handler, domain ...string) error {
 	var g errgroup.Group
 
@@ -29,9 +33,10 @@ func run(ctx context.Context, r http.Handler, domain ...string) error {
 	})
 
 	g.Go(func() error {
-		if ctx == nil {
+		if v := ctx.Value(ctxKey); v != nil {
 			return nil
 		}
+
 		<-ctx.Done()
 
 		var gShutdown errgroup.Group
@@ -54,7 +59,8 @@ func RunWithContext(ctx context.Context, r http.Handler, domain ...string) error
 
 // Run support 1-line LetsEncrypt HTTPS servers
 func Run(r http.Handler, domain ...string) error {
-	return run(nil, r, domain...)
+	ctx := context.WithValue(context.Background(), ctxKey, "done")
+	return run(ctx, r, domain...)
 }
 
 // RunWithManager support custom autocert manager
