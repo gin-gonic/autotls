@@ -3,7 +3,6 @@
 [![Run Tests](https://github.com/gin-gonic/autotls/actions/workflows/go.yml/badge.svg)](https://github.com/gin-gonic/autotls/actions/workflows/go.yml)
 [![Go Report Card](https://goreportcard.com/badge/github.com/gin-gonic/autotls)](https://goreportcard.com/report/github.com/gin-gonic/autotls)
 [![GoDoc](https://pkg.go.dev/badge/github.com/gin-gonic/autotls?status.svg)](https://pkg.go.dev/github.com/gin-gonic/autotls)
-[![Join the chat at https://gitter.im/gin-gonic/autotls](https://badges.gitter.im/Join%20Chat.svg)](https://gitter.im/gin-gonic/autotls?utm_source=badge&utm_medium=badge&utm_campaign=pr-badge&utm_content=badge)
 
 Support Let's Encrypt for a Go server application.
 
