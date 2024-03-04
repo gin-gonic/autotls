@@ -3,7 +3,7 @@ module github.com/gin-gonic/autotls
 go 1.18
 
 require (
-	golang.org/x/crypto v0.19.0
+	golang.org/x/crypto v0.20.0
 	golang.org/x/sync v0.6.0
 )
 
