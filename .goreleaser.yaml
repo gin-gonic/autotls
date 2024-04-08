@@ -20,7 +20,7 @@ changelog:
   # - `github-native`: uses the GitHub release notes generation API, disables the groups feature.
   #
   # Defaults to `git`.
-  use: github
+  use: git
 
   # Sorts the changelog by the commit's messages.
   # Could either be asc, desc or empty
@@ -35,22 +35,22 @@ changelog:
   # Default is no groups.
   groups:
     - title: Features
-      regexp: '^.*?feat(\([[:word:]]+\))??!?:.+$'
+      regexp: "^.*feat[(\\w)]*:+.*$"
       order: 0
     - title: "Bug fixes"
-      regexp: '^.*?fix(\([[:word:]]+\))??!?:.+$'
+      regexp: "^.*fix[(\\w)]*:+.*$"
       order: 1
-    - title: "Refactor"
-      regexp: '^.*?refactor(\([[:word:]]+\))??!?:.+$'
+    - title: "Enhancements"
+      regexp: "^.*chore[(\\w)]*:+.*$"
       order: 2
+    - title: "Refactor"
+      regexp: "^.*refactor[(\\w)]*:+.*$"
+      order: 3
+    - title: "Build process updates"
+      regexp: ^.*?(build|ci)(\(.+\))??!?:.+$
+      order: 4
+    - title: "Documentation updates"
+      regexp: ^.*?docs?(\(.+\))??!?:.+$
+      order: 4
     - title: Others
       order: 999
-
-  filters:
-    # Commit messages matching the regexp listed here will be removed from
-    # the changelog
-    # Default is empty
-    exclude:
-      - "^docs"
-      - "CICD"
-      - typo
