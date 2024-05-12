@@ -2,15 +2,16 @@ package autotls
 
 import (
 	"errors"
-	"golang.org/x/crypto/acme/autocert"
 	"os"
 	"path/filepath"
 	"runtime"
+
+	"golang.org/x/crypto/acme/autocert"
 )
 
 func getCacheDir() (autocert.DirCache, error) {
 	dir := cacheDir()
-	if err := os.MkdirAll(dir, 0700); err != nil {
+	if err := os.MkdirAll(dir, 0o700); err != nil {
 		return "", errors.New("warning: autocert.NewListener not using a cache: " + err.Error())
 	}
 	return autocert.DirCache(dir), nil

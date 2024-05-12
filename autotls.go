@@ -5,6 +5,7 @@ import (
 	"crypto/tls"
 	"log"
 	"net/http"
+	"time"
 
 	"golang.org/x/crypto/acme/autocert"
 	"golang.org/x/sync/errgroup"
@@ -13,19 +14,22 @@ import (
 type tlsContextKey string
 
 var (
-	ctxKey  = tlsContextKey("autls")
-	todoCtx = context.WithValue(context.Background(), ctxKey, "done")
+	ctxKey            = tlsContextKey("autls")
+	todoCtx           = context.WithValue(context.Background(), ctxKey, "done")
+	ReadHeaderTimeout = 3 * time.Second
 )
 
 func run(ctx context.Context, r http.Handler, domain ...string) error {
 	var g errgroup.Group
 
 	s1 := &http.Server{
-		Addr:    ":http",
-		Handler: http.HandlerFunc(redirect),
+		Addr:              ":http",
+		Handler:           http.HandlerFunc(redirect),
+		ReadHeaderTimeout: ReadHeaderTimeout,
 	}
 	s2 := &http.Server{
-		Handler: r,
+		Handler:           r,
+		ReadHeaderTimeout: ReadHeaderTimeout,
 	}
 
 	g.Go(func() error {
@@ -84,12 +88,18 @@ func RunWithManagerAndTLSConfig(r http.Handler, m *autocert.Manager, tlsc *tls.C
 	tlsc.GetCertificate = defaultTLSConfig.GetCertificate
 	tlsc.NextProtos = defaultTLSConfig.NextProtos
 	s := &http.Server{
-		Addr:      ":https",
-		TLSConfig: tlsc,
-		Handler:   r,
+		Addr:              ":https",
+		TLSConfig:         tlsc,
+		Handler:           r,
+		ReadHeaderTimeout: ReadHeaderTimeout,
 	}
 	g.Go(func() error {
-		return http.ListenAndServe(":http", m.HTTPHandler(http.HandlerFunc(redirect)))
+		s := &http.Server{
+			Addr:              ":http",
+			Handler:           m.HTTPHandler(http.HandlerFunc(redirect)),
+			ReadHeaderTimeout: ReadHeaderTimeout,
+		}
+		return s.ListenAndServe()
 	})
 	g.Go(func() error {
 		return s.ListenAndServeTLS("", "")
