@@ -3,7 +3,6 @@ package autotls
 import (
 	"context"
 	"crypto/tls"
-	"log"
 	"net/http"
 	"time"
 
@@ -77,22 +76,26 @@ func RunWithManager(r http.Handler, m *autocert.Manager) error {
 // RunWithManagerAndTLSConfig support custom autocert manager and tls.Config
 func RunWithManagerAndTLSConfig(r http.Handler, m *autocert.Manager, tlsc *tls.Config) error {
 	var g errgroup.Group
+
 	if m.Cache == nil {
-		var e error
-		m.Cache, e = getCacheDir()
-		if e != nil {
-			log.Println(e)
+		cache, err := getCacheDir()
+		if err != nil {
+			return err
 		}
+		m.Cache = cache
 	}
+
 	defaultTLSConfig := m.TLSConfig()
 	tlsc.GetCertificate = defaultTLSConfig.GetCertificate
 	tlsc.NextProtos = defaultTLSConfig.NextProtos
+
 	s := &http.Server{
 		Addr:              ":https",
 		TLSConfig:         tlsc,
 		Handler:           r,
 		ReadHeaderTimeout: ReadHeaderTimeout,
 	}
+
 	g.Go(func() error {
 		s := &http.Server{
 			Addr:              ":http",
@@ -101,14 +104,15 @@ func RunWithManagerAndTLSConfig(r http.Handler, m *autocert.Manager, tlsc *tls.C
 		}
 		return s.ListenAndServe()
 	})
+
 	g.Go(func() error {
 		return s.ListenAndServeTLS("", "")
 	})
+
 	return g.Wait()
 }
 
 func redirect(w http.ResponseWriter, req *http.Request) {
 	target := "https://" + req.Host + req.RequestURI
-
 	http.Redirect(w, req, target, http.StatusMovedPermanently)
 }
