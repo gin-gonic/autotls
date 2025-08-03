@@ -56,7 +56,10 @@ type dummyHandler struct {
 func (h *dummyHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	h.called = true
 	w.WriteHeader(http.StatusOK)
-	w.Write([]byte("ok"))
+	if _, err := w.Write([]byte("ok")); err != nil {
+		// In test, log error but do not fail
+		panic("dummyHandler write failed: " + err.Error())
+	}
 }
 
 // Test RunWithContext with a dummy handler and a short-lived context.
@@ -82,7 +85,9 @@ func TestRunWithManagerAndTLSConfig_Cancel(t *testing.T) {
 // Test newHTTPServer returns a valid *http.Server with correct fields.
 func TestNewHTTPServer(t *testing.T) {
 	handler := &dummyHandler{}
-	tlsc := &tls.Config{}
+	tlsc := &tls.Config{
+		MinVersion: tls.VersionTLS12,
+	}
 	addr := ":12345"
 	s := newHTTPServer(addr, handler, tlsc)
 	if s.Addr != addr {
