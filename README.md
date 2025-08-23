@@ -109,3 +109,18 @@ func main() {
   log.Fatal(autotls.RunWithContext(ctx, r, "example1.com", "example2.com"))
 }
 ```
+
+## PSA: Running autotls inside Docker
+
+If you run autotls in minimal Docker images (Debian, Ubuntu, Fedora, or similar), HTTPS and ACME certificate operations will fail unless you ensure the image contains x509 root CA certificates. By default, smaller base images do not include these certificates.
+
+To fix this, add the following steps in your Dockerfile:
+
+```dockerfile
+RUN apt-get update && apt-get install -y ca-certificates
+RUN update-ca-certificates
+```
+
+This is not needed with official Golang images or most large distributions, but **is essential for cut-down base images**.
+
+If omitted, you may get unexplained HTTPS/x509 errors when using autotls.
