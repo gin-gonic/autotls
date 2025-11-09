@@ -1,6 +1,7 @@
 # autotls
 
 [![Run Tests](https://github.com/gin-gonic/autotls/actions/workflows/go.yml/badge.svg)](https://github.com/gin-gonic/autotls/actions/workflows/go.yml)
+[![Trivy Security Scan](https://github.com/gin-gonic/autotls/actions/workflows/trivy.yml/badge.svg)](https://github.com/gin-gonic/autotls/actions/workflows/trivy.yml)
 [![Go Report Card](https://goreportcard.com/badge/github.com/gin-gonic/autotls)](https://goreportcard.com/report/github.com/gin-gonic/autotls)
 [![GoDoc](https://pkg.go.dev/badge/github.com/gin-gonic/autotls?status.svg)](https://pkg.go.dev/github.com/gin-gonic/autotls)
 
