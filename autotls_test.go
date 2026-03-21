@@ -11,7 +11,7 @@ import (
 
 // Test redirect handler
 func TestRedirect(t *testing.T) {
-	req := httptest.NewRequest("GET", "/foo?bar=1", nil)
+	req := httptest.NewRequest(http.MethodGet, "/foo?bar=1", nil)
 	req.Host = "example.com"
 	rr := httptest.NewRecorder()
 
@@ -30,7 +30,7 @@ func TestRedirect(t *testing.T) {
 
 // Test redirect handler with empty Host (should fallback to URL.Host)
 func TestRedirect_EmptyHost(t *testing.T) {
-	req := httptest.NewRequest("GET", "/bar", nil)
+	req := httptest.NewRequest(http.MethodGet, "/bar", nil)
 	req.Host = ""
 	req.URL.Host = "example.org"
 	rr := httptest.NewRecorder()
