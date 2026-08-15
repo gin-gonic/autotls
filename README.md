@@ -2,7 +2,7 @@
 
 [![Run Tests](https://github.com/gin-gonic/autotls/actions/workflows/go.yml/badge.svg)](https://github.com/gin-gonic/autotls/actions/workflows/go.yml)
 [![Trivy Security Scan](https://github.com/gin-gonic/autotls/actions/workflows/trivy-scan.yml/badge.svg)](https://github.com/gin-gonic/autotls/actions/workflows/trivy-scan.yml)
-[![GoDoc](https://pkg.go.dev/badge/github.com/gin-gonic/autotls?status.svg)](https://pkg.go.dev/github.com/gin-gonic/autotls)
+[![Go Reference](https://pkg.go.dev/badge/github.com/gin-gonic/autotls.svg)](https://pkg.go.dev/github.com/gin-gonic/autotls)
 
 Support Let's Encrypt for a Go server application.
 
