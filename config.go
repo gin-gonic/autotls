@@ -19,6 +19,11 @@ type Config struct {
 	HTTPAddr string
 	// HTTPSAddr is the HTTPS application address. Empty means ":443".
 	HTTPSAddr string
+	// HTTPHandler handles non-ACME HTTP requests. Nil uses autocert's HTTPS
+	// redirect. Set a handler to serve HTTP without redirecting; ACME challenge
+	// requests are still handled by Manager.HTTPHandler. This handler receives
+	// unencrypted traffic and is not protected by the manager's host policy.
+	HTTPHandler http.Handler
 	// Domains restricts certificate issuance when Manager is nil. An empty list
 	// allows any domain, which is not recommended. Do not set with Manager.
 	Domains []string
@@ -32,13 +37,14 @@ type Config struct {
 }
 
 // RunWithConfig serves HTTPS and HTTP ACME challenges on the configured addresses.
-// Non-challenge HTTP requests redirect to HTTPS. Both listeners must start
-// successfully before either server begins serving. The existing Run helpers
-// are unchanged; use this entry point to restrict the listening interfaces.
+// Non-challenge HTTP requests use Config.HTTPHandler or redirect to HTTPS.
+// Both listeners must start successfully before either server begins serving.
+// The existing Run helpers are unchanged; use this entry point to restrict the
+// listening interfaces.
 //
 // ACME validation must still reach public port 80 (HTTP-01) or 443 (TLS-ALPN-01),
 // even when a proxy forwards those ports to different local listening ports.
-// Redirects target the standard public HTTPS port, not the local HTTPSAddr port.
+// The default redirect targets the public HTTPS port, not the local HTTPSAddr port.
 // On context cancellation, both servers have up to five seconds to shut down;
 // successful shutdown returns nil. An already-canceled context returns its error.
 func RunWithConfig(ctx context.Context, r http.Handler, config Config) error {
@@ -99,7 +105,7 @@ func (c Config) servers(r http.Handler) (*http.Server, *http.Server, error) {
 	if httpsAddr == "" {
 		httpsAddr = ":443"
 	}
-	return newHTTPServer(httpAddr, m.HTTPHandler(nil), nil),
+	return newHTTPServer(httpAddr, m.HTTPHandler(c.HTTPHandler), nil),
 		newHTTPServer(httpsAddr, r, tlsc), nil
 }
 
