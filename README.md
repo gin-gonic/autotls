@@ -126,6 +126,23 @@ func main() {
 }
 ```
 
+### Custom TLS settings
+
+Use `RunWithManagerAndTLSConfig` to configure TLS settings, including
+`tls.Config.CipherSuites`. See the runnable
+[custom TLS example](_example/custom-tls/main.go).
+
+Prefer Go's default cipher suite selection unless your deployment requires an
+explicit policy. `CipherSuites` only controls TLS 1.0–1.2; TLS 1.3 cipher suites are
+not configurable. The example permits TLS 1.2 and newer and illustrates an
+explicit TLS 1.2 allowlist for both RSA and ECDSA certificates.
+
+The helper sets `GetCertificate` and `NextProtos` on the supplied configuration
+to preserve autocert certificate management and ACME ALPN support. Pass
+`tlsConfig.Clone()` if the original configuration is shared or must remain
+unchanged. See [Go's tls.Config documentation](https://pkg.go.dev/crypto/tls#Config)
+for the meaning of each setting.
+
 example usage for graceful shutdown with custom context.
 
 ```go
@@ -187,6 +204,29 @@ The example's HTTP redirects target the domain's public HTTPS port 443, not
 expect HTTP 204. Replace the sample domain with one you control and retain the
 certificate cache on persistent storage. The example handles SIGINT/SIGTERM to
 shut down both local listeners.
+
+## Wildcard certificates
+
+autotls does not obtain wildcard certificates such as `*.example.com`.
+Its underlying [`autocert.Manager`](https://pkg.go.dev/golang.org/x/crypto/acme/autocert#Manager)
+supports HTTP-01 and TLS-ALPN-01 validation, while Let's Encrypt requires
+[DNS-01 validation](https://letsencrypt.org/docs/challenge-types/#dns-01-challenge)
+for wildcard certificates.
+
+For a known set of hostnames, pass each name explicitly, for example:
+
+```go
+log.Fatal(autotls.Run(r, "example.com", "www.example.com", "api.example.com"))
+```
+
+These names must resolve to your server and be reachable for ACME validation.
+`autocert.HostWhitelist` matches exact names; passing `*.example.com` does not
+authorize all subdomains or enable DNS-01 support.
+
+If you need a wildcard certificate, obtain and renew it with a separate ACME
+client that supports your DNS provider, then serve it through your own TLS
+server or reverse proxy. That client must manage renewal and your TLS server
+must load renewed certificates; autotls does not manage that external workflow.
 
 ## Certificate renewal
 
