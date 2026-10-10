@@ -129,6 +129,30 @@ func main() {
 }
 ```
 
+## Certificate renewal
+
+Yes, autotls renews certificates automatically through
+[`autocert.Manager`](https://pkg.go.dev/golang.org/x/crypto/acme/autocert#Manager).
+The manager schedules renewal for certificates it obtains or loads while the
+server is running; you do not need a separate renewal cron job or a server restart
+to serve a renewed certificate.
+
+Keep the server running and the domain's ACME challenge endpoint reachable for
+renewal, just as for initial issuance. `Run` and `RunWithContext` use TLS-ALPN-01
+on public port 443. The custom-manager helpers also enable HTTP-01 on public
+port 80. Outbound access to the ACME service is required.
+
+Keep the certificate cache on persistent, writable storage across restarts
+(including container replacements). The default cache uses an OS-specific
+`golang-autocert` directory; set `Manager.Cache` to an `autocert.DirCache` on a
+persistent volume when using `RunWithManager`. Losing the cache can cause
+unnecessary issuance requests and CA rate limits.
+
+For custom renewal timing, set `Manager.RenewBefore` before passing the manager to
+`RunWithManager`. Its default timing is defined by the installed autocert version;
+see the linked Manager documentation. Renewal still depends on successful domain
+validation and network access, so monitor certificate expiry and server errors.
+
 ## PSA: Running autotls inside Docker
 
 If you run autotls in minimal Docker images (Debian, Ubuntu, Fedora, or similar), HTTPS and ACME certificate operations will fail unless you ensure the image contains x509 root CA certificates. By default, smaller base images do not include these certificates.
