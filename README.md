@@ -166,6 +166,28 @@ func main() {
 }
 ```
 
+## Using a different local port
+
+`Run`, `RunWithContext`, `RunWithManager`, and `RunWithManagerAndTLSConfig` use
+ports 80 and 443. To use different local ports, set `Config.HTTPAddr` and
+`Config.HTTPSAddr` with `RunWithConfig`; see the runnable
+[custom ports example](_example/custom-ports/main.go), which binds HTTP to
+`127.0.0.1:8080` and HTTPS to `127.0.0.1:8443`.
+
+Local listening ports and public ACME validation ports are separate settings.
+Let's Encrypt's [HTTP-01 challenge](https://letsencrypt.org/docs/challenge-types/#http-01-challenge)
+uses public port 80, and TLS-ALPN-01 uses public port 443. For the example, arrange
+forwarding from public port 80 to local 8080 and public port 443 to local 8443.
+TLS-ALPN-01 requires the TLS connection and its ALPN protocol to reach this
+server; a proxy that terminates TLS must instead allow HTTP-01 to reach the
+origin. Merely opening public port 8443 is not sufficient for ACME validation.
+
+The example's HTTP redirects target the domain's public HTTPS port 443, not
+8443. With forwarding in place, visit `https://your-domain.example/ping` and
+expect HTTP 204. Replace the sample domain with one you control and retain the
+certificate cache on persistent storage. The example handles SIGINT/SIGTERM to
+shut down both local listeners.
+
 ## Certificate renewal
 
 Yes, autotls renews certificates automatically through
