@@ -110,6 +110,29 @@ func main() {
 }
 ```
 
+## Wildcard certificates
+
+autotls does not obtain wildcard certificates such as `*.example.com`.
+Its underlying [`autocert.Manager`](https://pkg.go.dev/golang.org/x/crypto/acme/autocert#Manager)
+supports HTTP-01 and TLS-ALPN-01 validation, while Let's Encrypt requires
+[DNS-01 validation](https://letsencrypt.org/docs/challenge-types/#dns-01-challenge)
+for wildcard certificates.
+
+For a known set of hostnames, pass each name explicitly, for example:
+
+```go
+log.Fatal(autotls.Run(r, "example.com", "www.example.com", "api.example.com"))
+```
+
+These names must resolve to your server and be reachable for ACME validation.
+`autocert.HostWhitelist` matches exact names; passing `*.example.com` does not
+authorize all subdomains or enable DNS-01 support.
+
+If you need a wildcard certificate, obtain and renew it with a separate ACME
+client that supports your DNS provider, then serve it through your own TLS
+server or reverse proxy. That client must manage renewal and your TLS server
+must load renewed certificates; autotls does not manage that external workflow.
+
 ## PSA: Running autotls inside Docker
 
 If you run autotls in minimal Docker images (Debian, Ubuntu, Fedora, or similar), HTTPS and ACME certificate operations will fail unless you ensure the image contains x509 root CA certificates. By default, smaller base images do not include these certificates.
