@@ -70,6 +70,23 @@ func main() {
 }
 ```
 
+### Custom TLS settings
+
+Use `RunWithManagerAndTLSConfig` to configure TLS settings, including
+`tls.Config.CipherSuites`. See the runnable
+[custom TLS example](_example/custom-tls/main.go).
+
+Prefer Go's default cipher suite selection unless your deployment requires an
+explicit policy. `CipherSuites` only controls TLS 1.0–1.2; TLS 1.3 cipher suites are
+not configurable. The example permits TLS 1.2 and newer and illustrates an
+explicit TLS 1.2 allowlist for both RSA and ECDSA certificates.
+
+The helper sets `GetCertificate` and `NextProtos` on the supplied configuration
+to preserve autocert certificate management and ACME ALPN support. Pass
+`tlsConfig.Clone()` if the original configuration is shared or must remain
+unchanged. See [Go's tls.Config documentation](https://pkg.go.dev/crypto/tls#Config)
+for the meaning of each setting.
+
 example usage for graceful shutdown with custom context.
 
 ```go
