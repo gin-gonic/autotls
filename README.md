@@ -6,6 +6,25 @@
 
 Support Let's Encrypt for a Go server application.
 
+## Before running the examples
+
+Replace `example1.com` and `example2.com` with public domain names you control.
+Point their DNS records to your server and allow inbound traffic on TCP ports 80
+and 443. The `Run` example uses TLS-ALPN-01 validation on public port 443, so a
+TLS-terminating proxy in front of it must not intercept that challenge.
+
+Visit `https://your-domain.example/ping` using your configured domain, rather than
+`https://localhost:443/ping`. The hostname selects the certificate during the TLS
+handshake. Let's Encrypt does not issue certificates for `localhost`, and merely
+editing your local hosts file does not make your server reachable to its public
+validation service. See [Let's Encrypt's localhost guidance](https://letsencrypt.org/docs/certificates-for-localhost/).
+
+For a local HTTP-only check of the `/ping` handler, replace the example's
+`autotls.Run(...)` line with `log.Fatal(r.Run("127.0.0.1:8080"))` and remove the
+unused autotls import. Then visit `http://127.0.0.1:8080/ping`; the response should
+be `pong`. For local HTTPS, use a locally trusted development certificate with
+Gin's `RunTLS` instead of requesting a public certificate for localhost.
+
 ## example
 
 example for 1-line LetsEncrypt HTTPS servers.
@@ -132,6 +151,30 @@ If you need a wildcard certificate, obtain and renew it with a separate ACME
 client that supports your DNS provider, then serve it through your own TLS
 server or reverse proxy. That client must manage renewal and your TLS server
 must load renewed certificates; autotls does not manage that external workflow.
+
+## Certificate renewal
+
+Yes, autotls renews certificates automatically through
+[`autocert.Manager`](https://pkg.go.dev/golang.org/x/crypto/acme/autocert#Manager).
+The manager schedules renewal for certificates it obtains or loads while the
+server is running; you do not need a separate renewal cron job or a server restart
+to serve a renewed certificate.
+
+Keep the server running and the domain's ACME challenge endpoint reachable for
+renewal, just as for initial issuance. `Run` and `RunWithContext` use TLS-ALPN-01
+on public port 443. The custom-manager helpers also enable HTTP-01 on public
+port 80. Outbound access to the ACME service is required.
+
+Keep the certificate cache on persistent, writable storage across restarts
+(including container replacements). The default cache uses an OS-specific
+`golang-autocert` directory; set `Manager.Cache` to an `autocert.DirCache` on a
+persistent volume when using `RunWithManager`. Losing the cache can cause
+unnecessary issuance requests and CA rate limits.
+
+For custom renewal timing, set `Manager.RenewBefore` before passing the manager to
+`RunWithManager`. Its default timing is defined by the installed autocert version;
+see the linked Manager documentation. Renewal still depends on successful domain
+validation and network access, so monitor certificate expiry and server errors.
 
 ## PSA: Running autotls inside Docker
 
