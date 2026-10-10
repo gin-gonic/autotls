@@ -6,6 +6,43 @@
 
 Support Let's Encrypt for a Go server application.
 
+## Listening addresses
+
+Use `RunWithConfig(ctx, handler, config)` to choose both listening addresses
+without changing the existing `Run`, `RunWithContext`, or custom-manager APIs:
+
+```go
+err := autotls.RunWithConfig(ctx, r, autotls.Config{
+  HTTPAddr:  "192.0.2.10:80",
+  HTTPSAddr: "192.0.2.10:443",
+  Domains:   []string{"example.com"},
+})
+```
+
+Replace the sample IP with an address assigned to the intended interface and the
+domain with one you control. For IPv6, use brackets, such as `[2001:db8::10]:443`.
+Empty addresses default to `:80` and `:443` (all interfaces). Both listeners use
+the supplied addresses, including the HTTPS listener; no package-wide mutable
+address setting is needed.
+
+Set `Manager` instead of `Domains` to supply a custom `autocert.Manager` and host
+policy. Setting both is an error. A nil manager uses the default disk cache and
+accepts the CA terms of service; explicitly list domains to limit issuance.
+`TLSConfig` is optional and is cloned before installing the manager's certificate
+callback and ALPN protocols.
+
+Both listeners must bind before serving. A startup failure closes any listener
+already opened. Canceling `ctx` shuts down both servers, allowing up to five
+seconds for active requests before closing remaining connections. Successful
+shutdown returns nil; a context canceled before startup returns its error.
+
+Binding an internal address does not make it reachable to the CA. Public TCP
+port 80 (HTTP-01) or 443 (TLS-ALPN-01) must still reach the appropriate challenge
+handler, directly or through forwarding. The new entry point uses autocert's
+default HTTP fallback: GET/HEAD redirect with 302 to public HTTPS port 443,
+preserving path and query, and other methods receive 400. The redirect does not
+use the local `HTTPSAddr` port. Existing helpers keep their existing behavior.
+
 ## example
 
 example for 1-line LetsEncrypt HTTPS servers.
