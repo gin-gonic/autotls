@@ -22,15 +22,15 @@ func main() {
 
 	// Replace example.com with your domain. Public ports 80 and 443 must reach
 	// these local listeners for ACME validation; see the README for forwarding.
-	err := autotls.RunWithConfig(ctx, r, autotls.Config{
-		HTTPAddr:  "127.0.0.1:8080",
-		HTTPSAddr: "127.0.0.1:8443",
-		Manager: &autocert.Manager{
+	err := autotls.RunWithOptions(ctx, r,
+		autotls.WithHTTPAddr("127.0.0.1:8080"),
+		autotls.WithHTTPSAddr("127.0.0.1:8443"),
+		autotls.WithManager(&autocert.Manager{
 			Prompt:     autocert.AcceptTOS,
 			HostPolicy: autocert.HostWhitelist("example.com"),
 			Cache:      autocert.DirCache("./cert-cache"),
-		},
-	})
+		}),
+	)
 	stop()
 	if err != nil {
 		log.Fatal(err)
