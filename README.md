@@ -8,15 +8,15 @@ Support Let's Encrypt for a Go server application.
 
 ## Listening addresses
 
-Use `RunWithConfig(ctx, handler, config)` to choose both listening addresses
+Use `RunWithOptions(ctx, handler, options...)` to choose both listening addresses
 without changing the existing `Run`, `RunWithContext`, or custom-manager APIs:
 
 ```go
-err := autotls.RunWithConfig(ctx, r, autotls.Config{
-  HTTPAddr:  "192.0.2.10:80",
-  HTTPSAddr: "192.0.2.10:443",
-  Domains:   []string{"example.com"},
-})
+err := autotls.RunWithOptions(ctx, r,
+  autotls.WithHTTPAddr("192.0.2.10:80"),
+  autotls.WithHTTPSAddr("192.0.2.10:443"),
+  autotls.WithDomains("example.com"),
+)
 ```
 
 Replace the sample IP with an address assigned to the intended interface and the
@@ -25,11 +25,17 @@ Empty addresses default to `:80` and `:443` (all interfaces). Both listeners use
 the supplied addresses, including the HTTPS listener; no package-wide mutable
 address setting is needed.
 
-Set `Manager` instead of `Domains` to supply a custom `autocert.Manager` and host
-policy. Setting both is an error. A nil manager uses the default disk cache and
-accepts the CA terms of service; explicitly list domains to limit issuance.
-`TLSConfig` is optional and is cloned before installing the manager's certificate
-callback and ALPN protocols.
+Use `WithManager` instead of `WithDomains` to supply a custom `autocert.Manager`
+and host policy. A non-nil manager with non-empty domains is an error. A nil
+manager uses the default disk cache and accepts the CA terms of service;
+explicitly list domains to limit issuance. `WithTLSConfig` is optional and its
+configuration is cloned before installing the manager's certificate callback
+and ALPN protocols.
+
+Options are applied in order; the last option for each setting wins. Nil options
+are rejected. `WithDomains` copies its input, so changing the original slice does
+not change the option. Existing callers can continue using the original `Run`
+helpers without adopting this new entry point.
 
 Both listeners must bind before serving. A startup failure closes any listener
 already opened. Canceling `ctx` shuts down both servers, allowing up to five
@@ -41,7 +47,7 @@ port 80 (HTTP-01) or 443 (TLS-ALPN-01) must still reach the appropriate challeng
 handler, directly or through forwarding. The new entry point uses autocert's
 default HTTP fallback: GET/HEAD redirect with 302 to public HTTPS port 443,
 preserving path and query, and other methods receive 400. The redirect does not
-use the local `HTTPSAddr` port. Existing helpers keep their existing behavior.
+use the local `WithHTTPSAddr` port. Existing helpers keep their existing behavior.
 
 ## HTTP handlers and reverse proxies
 
@@ -52,21 +58,22 @@ proxy also connects over HTTPS; see
 [Cloudflare's redirect-loop guidance](https://developers.cloudflare.com/ssl/troubleshooting/too-many-redirects/).
 Changing this setting requires a working origin certificate first.
 
-If your deployment intentionally serves HTTP to a proxy, use `Config.HTTPHandler`
+If your deployment intentionally serves HTTP to a proxy, use `WithHTTPHandler`
 to disable the default redirect for ordinary requests:
 
 ```go
-err := autotls.RunWithConfig(ctx, r, autotls.Config{
-  Domains:     []string{"example.com"},
-  HTTPHandler: r,
-})
+err := autotls.RunWithOptions(ctx, r,
+  autotls.WithDomains("example.com"),
+  autotls.WithHTTPHandler(r),
+)
 ```
 
 Here `r` handles both HTTPS and non-ACME HTTP requests. The HTTP leg is unencrypted;
 restrict origin access as appropriate for your deployment. The manager's
 `HostPolicy` restricts issuance and challenge handling, not application requests.
-Use `http.NotFoundHandler()` instead if ordinary HTTP requests should get 404
-without a redirect. Leaving `HTTPHandler` nil retains the default redirect.
+Use `WithHTTPHandler(http.NotFoundHandler())` instead if ordinary HTTP requests
+should get 404 without a redirect. Omitting the option or passing
+`WithHTTPHandler(nil)` retains the default redirect.
 
 The custom handler remains wrapped by `Manager.HTTPHandler`, so
 `/.well-known/acme-challenge/` requests still reach autocert. A TLS-terminating
@@ -218,8 +225,8 @@ func main() {
 ## Using a different local port
 
 `Run`, `RunWithContext`, `RunWithManager`, and `RunWithManagerAndTLSConfig` use
-ports 80 and 443. To use different local ports, set `Config.HTTPAddr` and
-`Config.HTTPSAddr` with `RunWithConfig`; see the runnable
+ports 80 and 443. To use different local ports, pass `WithHTTPAddr` and
+`WithHTTPSAddr` to `RunWithOptions`; see the runnable
 [custom ports example](_example/custom-ports/main.go), which binds HTTP to
 `127.0.0.1:8080` and HTTPS to `127.0.0.1:8443`.
 

@@ -33,14 +33,14 @@ func listenerForTest(t *testing.T, addr string) net.Listener {
 	return ln
 }
 
-func configForTest(t *testing.T, host string) Config {
+func configForTest(t *testing.T, host string) serverConfig {
 	t.Helper()
 	first := listenerForTest(t, net.JoinHostPort(host, "0"))
 	second := listenerForTest(t, net.JoinHostPort(host, "0"))
-	c := Config{
-		HTTPAddr:  first.Addr().String(),
-		HTTPSAddr: second.Addr().String(),
-		Manager: &autocert.Manager{
+	c := serverConfig{
+		httpAddr:  first.Addr().String(),
+		httpsAddr: second.Addr().String(),
+		manager: &autocert.Manager{
 			Prompt:     autocert.AcceptTOS,
 			HostPolicy: autocert.HostWhitelist("example.com"),
 			Cache:      autocert.DirCache(t.TempDir()),
@@ -98,7 +98,7 @@ func cachedCertificate(t *testing.T, m *autocert.Manager) *x509.CertPool {
 	return roots
 }
 
-func TestRunWithConfigListeners(t *testing.T) {
+func TestRunWithOptionsListeners(t *testing.T) {
 	for _, host := range []string{"127.0.0.1", "::1"} {
 		t.Run(host, func(t *testing.T) {
 			if host == "::1" {
@@ -110,25 +110,26 @@ func TestRunWithConfigListeners(t *testing.T) {
 				probe.Close()
 			}
 			config := configForTest(t, host)
-			roots := cachedCertificate(t, config.Manager)
-			config.TLSConfig = &tls.Config{MinVersion: tls.VersionTLS13}
+			roots := cachedCertificate(t, config.manager)
+			config.tlsConfig = &tls.Config{MinVersion: tls.VersionTLS13}
 			ctx, cancel := context.WithCancel(t.Context())
 			done := make(chan error, 1)
 			go func() {
-				done <- RunWithConfig(ctx, http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+				done <- RunWithOptions(ctx, http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 					if r.TLS == nil || r.TLS.Version != tls.VersionTLS13 {
 						t.Error("custom TLS minimum was not applied")
 					}
 					w.WriteHeader(http.StatusNoContent)
-				}), config)
+				}), WithHTTPAddr(config.httpAddr), WithHTTPSAddr(config.httpsAddr),
+					WithManager(config.manager), WithTLSConfig(config.tlsConfig))
 			}()
 			t.Cleanup(func() {
 				cancel()
 				if err := awaitRun(t, done); err != nil {
 					t.Errorf("shutdown: %v", err)
 				}
-				listenerForTest(t, config.HTTPAddr).Close()
-				listenerForTest(t, config.HTTPSAddr).Close()
+				listenerForTest(t, config.httpAddr).Close()
+				listenerForTest(t, config.httpsAddr).Close()
 			})
 
 			transport := &http.Transport{
@@ -149,7 +150,7 @@ func TestRunWithConfigListeners(t *testing.T) {
 				req, _ := http.NewRequestWithContext(
 					deadline,
 					http.MethodGet,
-					"http://"+config.HTTPAddr+"/ping?q=1",
+					"http://"+config.httpAddr+"/ping?q=1",
 					nil,
 				)
 				req.Host = "example.com:8080"
@@ -174,7 +175,7 @@ func TestRunWithConfigListeners(t *testing.T) {
 			req, _ := http.NewRequestWithContext(
 				t.Context(),
 				http.MethodGet,
-				"https://"+config.HTTPSAddr+"/ping",
+				"https://"+config.httpsAddr+"/ping",
 				nil,
 			)
 			resp, err := client.Do(req)
@@ -194,7 +195,7 @@ func TestRunWithConfigListeners(t *testing.T) {
 					}
 					probe.Close()
 					// A wildcard listener would prevent binding these same ports.
-					for _, addr := range []string{config.HTTPAddr, config.HTTPSAddr} {
+					for _, addr := range []string{config.httpAddr, config.httpsAddr} {
 						_, port, _ := net.SplitHostPort(addr)
 						listenerForTest(t, net.JoinHostPort("127.0.0.2", port)).Close()
 					}
@@ -204,17 +205,20 @@ func TestRunWithConfigListeners(t *testing.T) {
 	}
 }
 
-func TestRunWithConfigBindFailure(t *testing.T) {
+func TestRunWithOptionsBindFailure(t *testing.T) {
 	for _, which := range []string{"HTTP", "HTTPS"} {
 		t.Run(which, func(t *testing.T) {
 			config := configForTest(t, "127.0.0.1")
-			addr := config.HTTPAddr
+			addr := config.httpAddr
 			if which == "HTTPS" {
-				addr = config.HTTPSAddr
+				addr = config.httpsAddr
 			}
 			listenerForTest(t, addr)
 			done := make(chan error, 1)
-			go func() { done <- RunWithConfig(t.Context(), http.NotFoundHandler(), config) }()
+			go func() {
+				done <- RunWithOptions(t.Context(), http.NotFoundHandler(),
+					WithHTTPAddr(config.httpAddr), WithHTTPSAddr(config.httpsAddr), WithManager(config.manager))
+			}()
 			if err := awaitRun(
 				t,
 				done,
@@ -223,28 +227,30 @@ func TestRunWithConfigBindFailure(t *testing.T) {
 				t.Fatalf("expected %s bind error, got %v", which, err)
 			}
 			if which == "HTTPS" {
-				listenerForTest(t, config.HTTPAddr).Close()
+				listenerForTest(t, config.httpAddr).Close()
 			}
 		})
 	}
 }
 
-func TestRunWithConfigCanceled(t *testing.T) {
+func TestRunWithOptionsCanceled(t *testing.T) {
 	ctx, cancel := context.WithCancel(t.Context())
 	cancel()
-	if err := RunWithConfig(ctx, nil, Config{}); !errors.Is(err, context.Canceled) {
+	if err := RunWithOptions(ctx, nil); !errors.Is(err, context.Canceled) {
 		t.Fatalf("expected context.Canceled, got %v", err)
 	}
 }
 
 func TestConfigServers(t *testing.T) {
 	config := configForTest(t, "127.0.0.1")
-	config.HTTPAddr, config.HTTPSAddr = "", ""
 	original := &tls.Config{
 		MinVersion: tls.VersionTLS13,
 		NextProtos: []string{"custom"},
 	}
-	config.TLSConfig = original
+	config, err := newServerConfig([]Option{WithManager(config.manager), WithTLSConfig(original)})
+	if err != nil {
+		t.Fatal(err)
+	}
 	httpServer, httpsServer, err := config.servers(http.NotFoundHandler())
 	if err != nil {
 		t.Fatal(err)
@@ -260,14 +266,14 @@ func TestConfigServers(t *testing.T) {
 		httpsServer.TLSConfig.GetCertificate == nil {
 		t.Fatal("custom TLS settings or certificate callback lost")
 	}
-	if !reflect.DeepEqual(httpsServer.TLSConfig.NextProtos, config.Manager.TLSConfig().NextProtos) {
+	if !reflect.DeepEqual(httpsServer.TLSConfig.NextProtos, config.manager.TLSConfig().NextProtos) {
 		t.Fatal("ACME/HTTP ALPN protocols lost")
 	}
-	config.Domains = []string{"example.com"}
+	config.domains = []string{"example.com"}
 	if _, _, err := config.servers(nil); err == nil {
 		t.Fatal("ambiguous domain policy accepted")
 	}
-	config.Manager = nil
+	config.manager = nil
 	_, httpsServer, err = config.servers(nil)
 	if err != nil {
 		t.Fatal(err)
@@ -286,7 +292,7 @@ func TestConfigHTTPChallenge(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if err := config.Manager.Cache.Put(
+	if err := config.manager.Cache.Put(
 		t.Context(),
 		"test-token+http-01",
 		[]byte("challenge-response"),
@@ -338,7 +344,7 @@ func TestConfiguredShutdownTimeout(t *testing.T) {
 func testConfiguredShutdown(t *testing.T, timeout bool) {
 	t.Helper()
 	config := configForTest(t, "127.0.0.1")
-	roots := cachedCertificate(t, config.Manager)
+	roots := cachedCertificate(t, config.manager)
 	entered, release := make(chan struct{}), make(chan struct{})
 	defer close(release)
 	handler := http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {

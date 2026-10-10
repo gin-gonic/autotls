@@ -27,9 +27,16 @@ func TestConfigHTTPHandler(t *testing.T) {
 		{name: "challenge host rejected", handler: http.HandlerFunc(httpOK), method: http.MethodGet, host: "denied.invalid", path: "/.well-known/acme-challenge/test-token", status: http.StatusForbidden},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
-			config := configForTest(t, "127.0.0.1")
-			config.HTTPHandler = tc.handler
-			if err := config.Manager.Cache.Put(
+			fixture := configForTest(t, "127.0.0.1")
+			config, err := newServerConfig([]Option{
+				WithManager(fixture.manager),
+				WithHTTPHandler(http.NotFoundHandler()),
+				WithHTTPHandler(tc.handler), // Last option wins, including nil restoring redirects.
+			})
+			if err != nil {
+				t.Fatal(err)
+			}
+			if err := config.manager.Cache.Put(
 				t.Context(),
 				"test-token+http-01",
 				[]byte("challenge-response"),

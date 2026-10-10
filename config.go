@@ -13,42 +13,34 @@ import (
 	"golang.org/x/sync/errgroup"
 )
 
-// Config configures the HTTP and HTTPS servers started by RunWithConfig.
-type Config struct {
-	// HTTPAddr is the HTTP challenge and redirect address. Empty means ":80".
-	HTTPAddr string
-	// HTTPSAddr is the HTTPS application address. Empty means ":443".
-	HTTPSAddr string
-	// HTTPHandler handles non-ACME HTTP requests. Nil uses autocert's HTTPS
-	// redirect. Set a handler to serve HTTP without redirecting; ACME challenge
-	// requests are still handled by Manager.HTTPHandler. This handler receives
-	// unencrypted traffic and is not protected by the manager's host policy.
-	HTTPHandler http.Handler
-	// Domains restricts certificate issuance when Manager is nil. An empty list
-	// allows any domain, which is not recommended. Do not set with Manager.
-	Domains []string
-	// Manager optionally supplies certificate management and its host policy.
-	// If its Cache is nil, RunWithConfig sets the default disk cache before use.
-	// Do not modify or start using the manager concurrently during setup.
-	Manager *autocert.Manager
-	// TLSConfig optionally supplies TLS settings. It is cloned before setting
-	// GetCertificate and NextProtos from the certificate manager.
-	TLSConfig *tls.Config
+type serverConfig struct {
+	httpHandler http.Handler
+	httpAddr    string
+	httpsAddr   string
+	domains     []string
+	manager     *autocert.Manager
+	tlsConfig   *tls.Config
 }
 
-// RunWithConfig serves HTTPS and HTTP ACME challenges on the configured addresses.
-// Non-challenge HTTP requests use Config.HTTPHandler or redirect to HTTPS.
-// Both listeners must start successfully before either server begins serving.
-// The existing Run helpers are unchanged; use this entry point to restrict the
+// RunWithOptions serves HTTPS and HTTP ACME challenges on the configured addresses.
+// Non-challenge HTTP requests use WithHTTPHandler or redirect to HTTPS. Both
+// listeners must start successfully before either server begins serving. The
+// existing Run helpers are unchanged; use this entry point to restrict the
 // listening interfaces.
 //
 // ACME validation must still reach public port 80 (HTTP-01) or 443 (TLS-ALPN-01),
 // even when a proxy forwards those ports to different local listening ports.
-// The default redirect targets the public HTTPS port, not the local HTTPSAddr port.
+// The default redirect targets public HTTPS, not the local HTTPS listener port.
+// Options are applied in order; the last value for each setting wins. Nil options
+// are rejected. Non-empty WithDomains and a non-nil WithManager cannot be combined.
 // On context cancellation, both servers have up to five seconds to shut down;
 // successful shutdown returns nil. An already-canceled context returns its error.
-func RunWithConfig(ctx context.Context, r http.Handler, config Config) error {
+func RunWithOptions(ctx context.Context, r http.Handler, options ...Option) error {
 	if err := ctx.Err(); err != nil {
+		return err
+	}
+	config, err := newServerConfig(options)
+	if err != nil {
 		return err
 	}
 	httpServer, httpsServer, err := config.servers(r)
@@ -72,15 +64,15 @@ func RunWithConfig(ctx context.Context, r http.Handler, config Config) error {
 	return serveConfigured(ctx, httpServer, httpsServer, httpListener, httpsListener)
 }
 
-func (c Config) servers(r http.Handler) (*http.Server, *http.Server, error) {
-	if c.Manager != nil && len(c.Domains) > 0 {
-		return nil, nil, errors.New("autotls: set either Domains or Manager, not both")
+func (c serverConfig) servers(r http.Handler) (*http.Server, *http.Server, error) {
+	if c.manager != nil && len(c.domains) > 0 {
+		return nil, nil, errors.New("autotls: use either WithDomains or WithManager, not both")
 	}
-	m := c.Manager
+	m := c.manager
 	if m == nil {
 		m = &autocert.Manager{Prompt: autocert.AcceptTOS}
-		if len(c.Domains) > 0 {
-			m.HostPolicy = autocert.HostWhitelist(c.Domains...)
+		if len(c.domains) > 0 {
+			m.HostPolicy = autocert.HostWhitelist(c.domains...)
 		}
 	}
 	if m.Cache == nil {
@@ -92,20 +84,20 @@ func (c Config) servers(r http.Handler) (*http.Server, *http.Server, error) {
 	}
 
 	tlsc := m.TLSConfig()
-	if c.TLSConfig != nil {
-		custom := c.TLSConfig.Clone()
+	if c.tlsConfig != nil {
+		custom := c.tlsConfig.Clone()
 		custom.GetCertificate = tlsc.GetCertificate
 		custom.NextProtos = tlsc.NextProtos
 		tlsc = custom
 	}
-	httpAddr, httpsAddr := c.HTTPAddr, c.HTTPSAddr
+	httpAddr, httpsAddr := c.httpAddr, c.httpsAddr
 	if httpAddr == "" {
 		httpAddr = ":80"
 	}
 	if httpsAddr == "" {
 		httpsAddr = ":443"
 	}
-	return newHTTPServer(httpAddr, m.HTTPHandler(c.HTTPHandler), nil),
+	return newHTTPServer(httpAddr, m.HTTPHandler(c.httpHandler), nil),
 		newHTTPServer(httpsAddr, r, tlsc), nil
 }
 
