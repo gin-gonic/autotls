@@ -6,6 +6,25 @@
 
 Support Let's Encrypt for a Go server application.
 
+## Before running the examples
+
+Replace `example1.com` and `example2.com` with public domain names you control.
+Point their DNS records to your server and allow inbound traffic on TCP ports 80
+and 443. The `Run` example uses TLS-ALPN-01 validation on public port 443, so a
+TLS-terminating proxy in front of it must not intercept that challenge.
+
+Visit `https://your-domain.example/ping` using your configured domain, rather than
+`https://localhost:443/ping`. The hostname selects the certificate during the TLS
+handshake. Let's Encrypt does not issue certificates for `localhost`, and merely
+editing your local hosts file does not make your server reachable to its public
+validation service. See [Let's Encrypt's localhost guidance](https://letsencrypt.org/docs/certificates-for-localhost/).
+
+For a local HTTP-only check of the `/ping` handler, replace the example's
+`autotls.Run(...)` line with `log.Fatal(r.Run("127.0.0.1:8080"))` and remove the
+unused autotls import. Then visit `http://127.0.0.1:8080/ping`; the response should
+be `pong`. For local HTTPS, use a locally trusted development certificate with
+Gin's `RunTLS` instead of requesting a public certificate for localhost.
+
 ## example
 
 example for 1-line LetsEncrypt HTTPS servers.
