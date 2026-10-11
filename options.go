@@ -3,6 +3,7 @@ package autotls
 import (
 	"crypto/tls"
 	"errors"
+	"net/http"
 	"slices"
 
 	"golang.org/x/crypto/acme/autocert"
@@ -10,6 +11,14 @@ import (
 
 // Option configures RunWithOptions. Use the With functions to create options.
 type Option func(*serverConfig)
+
+// WithHTTPHandler sets the handler for non-ACME HTTP requests. Nil selects
+// autocert's HTTPS redirect. ACME challenge requests are still handled by
+// Manager.HTTPHandler. This handler receives unencrypted traffic and is not
+// protected by the manager's host policy.
+func WithHTTPHandler(handler http.Handler) Option {
+	return func(c *serverConfig) { c.httpHandler = handler }
+}
 
 // WithHTTPAddr sets the HTTP challenge and redirect address. Empty means ":80".
 func WithHTTPAddr(addr string) Option {

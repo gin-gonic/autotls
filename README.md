@@ -49,6 +49,39 @@ default HTTP fallback: GET/HEAD redirect with 302 to public HTTPS port 443,
 preserving path and query, and other methods receive 400. The redirect does not
 use the local `WithHTTPSAddr` port. Existing helpers keep their existing behavior.
 
+## HTTP handlers and reverse proxies
+
+Cloudflare Flexible mode connects to the origin over HTTP, even when the visitor
+uses HTTPS. Redirecting every origin HTTP request back to HTTPS can therefore
+create a loop. Prefer **Full (strict)** with a valid origin certificate so the
+proxy also connects over HTTPS; see
+[Cloudflare's redirect-loop guidance](https://developers.cloudflare.com/ssl/troubleshooting/too-many-redirects/).
+Changing this setting requires a working origin certificate first.
+
+If your deployment intentionally serves HTTP to a proxy, use `WithHTTPHandler`
+to disable the default redirect for ordinary requests:
+
+```go
+err := autotls.RunWithOptions(ctx, r,
+  autotls.WithDomains("example.com"),
+  autotls.WithHTTPHandler(r),
+)
+```
+
+Here `r` handles both HTTPS and non-ACME HTTP requests. The HTTP leg is unencrypted;
+restrict origin access as appropriate for your deployment. The manager's
+`HostPolicy` restricts issuance and challenge handling, not application requests.
+Use `WithHTTPHandler(http.NotFoundHandler())` instead if ordinary HTTP requests
+should get 404 without a redirect. Omitting the option or passing
+`WithHTTPHandler(nil)` retains the default redirect.
+
+The custom handler remains wrapped by `Manager.HTTPHandler`, so
+`/.well-known/acme-challenge/` requests still reach autocert. A TLS-terminating
+proxy cannot simply forward TLS-ALPN-01; ensure public port 80 and the HTTP-01
+challenge path reach the origin without interception, authentication or caching
+of challenge responses. Disabling redirects alone does not establish certificate
+validation or configure the proxy's SSL mode.
+
 ## Before running the examples
 
 Replace `example1.com` and `example2.com` with public domain names you control.

@@ -14,21 +14,23 @@ import (
 )
 
 type serverConfig struct {
-	httpAddr  string
-	httpsAddr string
-	domains   []string
-	manager   *autocert.Manager
-	tlsConfig *tls.Config
+	httpHandler http.Handler
+	httpAddr    string
+	httpsAddr   string
+	domains     []string
+	manager     *autocert.Manager
+	tlsConfig   *tls.Config
 }
 
 // RunWithOptions serves HTTPS and HTTP ACME challenges on the configured addresses.
-// Non-challenge HTTP requests redirect to HTTPS. Both listeners must start
-// successfully before either server begins serving. The existing Run helpers
-// are unchanged; use this entry point to restrict the listening interfaces.
+// Non-challenge HTTP requests use WithHTTPHandler or redirect to HTTPS. Both
+// listeners must start successfully before either server begins serving. The
+// existing Run helpers are unchanged; use this entry point to restrict the
+// listening interfaces.
 //
 // ACME validation must still reach public port 80 (HTTP-01) or 443 (TLS-ALPN-01),
 // even when a proxy forwards those ports to different local listening ports.
-// Redirects target the standard public HTTPS port, not the local HTTPS listener port.
+// The default redirect targets public HTTPS, not the local HTTPS listener port.
 // Options are applied in order; the last value for each setting wins. Nil options
 // are rejected. Non-empty WithDomains and a non-nil WithManager cannot be combined.
 // On context cancellation, both servers have up to five seconds to shut down;
@@ -95,7 +97,7 @@ func (c serverConfig) servers(r http.Handler) (*http.Server, *http.Server, error
 	if httpsAddr == "" {
 		httpsAddr = ":443"
 	}
-	return newHTTPServer(httpAddr, m.HTTPHandler(nil), nil),
+	return newHTTPServer(httpAddr, m.HTTPHandler(c.httpHandler), nil),
 		newHTTPServer(httpsAddr, r, tlsc), nil
 }
 
