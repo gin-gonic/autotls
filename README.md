@@ -6,6 +6,49 @@
 
 Support Let's Encrypt for a Go server application.
 
+## Listening addresses
+
+Use `RunWithOptions(ctx, handler, options...)` to choose both listening addresses
+without changing the existing `Run`, `RunWithContext`, or custom-manager APIs:
+
+```go
+err := autotls.RunWithOptions(ctx, r,
+  autotls.WithHTTPAddr("192.0.2.10:80"),
+  autotls.WithHTTPSAddr("192.0.2.10:443"),
+  autotls.WithDomains("example.com"),
+)
+```
+
+Replace the sample IP with an address assigned to the intended interface and the
+domain with one you control. For IPv6, use brackets, such as `[2001:db8::10]:443`.
+Empty addresses default to `:80` and `:443` (all interfaces). Both listeners use
+the supplied addresses, including the HTTPS listener; no package-wide mutable
+address setting is needed.
+
+Use `WithManager` instead of `WithDomains` to supply a custom `autocert.Manager`
+and host policy. A non-nil manager with non-empty domains is an error. A nil
+manager uses the default disk cache and accepts the CA terms of service;
+explicitly list domains to limit issuance. `WithTLSConfig` is optional and its
+configuration is cloned before installing the manager's certificate callback
+and ALPN protocols.
+
+Options are applied in order; the last option for each setting wins. Nil options
+are rejected. `WithDomains` copies its input, so changing the original slice does
+not change the option. Existing callers can continue using the original `Run`
+helpers without adopting this new entry point.
+
+Both listeners must bind before serving. A startup failure closes any listener
+already opened. Canceling `ctx` shuts down both servers, allowing up to five
+seconds for active requests before closing remaining connections. Successful
+shutdown returns nil; a context canceled before startup returns its error.
+
+Binding an internal address does not make it reachable to the CA. Public TCP
+port 80 (HTTP-01) or 443 (TLS-ALPN-01) must still reach the appropriate challenge
+handler, directly or through forwarding. The new entry point uses autocert's
+default HTTP fallback: GET/HEAD redirect with 302 to public HTTPS port 443,
+preserving path and query, and other methods receive 400. The redirect does not
+use the local `WithHTTPSAddr` port. Existing helpers keep their existing behavior.
+
 ## Before running the examples
 
 Replace `example1.com` and `example2.com` with public domain names you control.
@@ -145,6 +188,28 @@ func main() {
   log.Fatal(autotls.RunWithContext(ctx, r, "example1.com", "example2.com"))
 }
 ```
+
+## Using a different local port
+
+`Run`, `RunWithContext`, `RunWithManager`, and `RunWithManagerAndTLSConfig` use
+ports 80 and 443. To use different local ports, pass `WithHTTPAddr` and
+`WithHTTPSAddr` to `RunWithOptions`; see the runnable
+[custom ports example](_example/custom-ports/main.go), which binds HTTP to
+`127.0.0.1:8080` and HTTPS to `127.0.0.1:8443`.
+
+Local listening ports and public ACME validation ports are separate settings.
+Let's Encrypt's [HTTP-01 challenge](https://letsencrypt.org/docs/challenge-types/#http-01-challenge)
+uses public port 80, and TLS-ALPN-01 uses public port 443. For the example, arrange
+forwarding from public port 80 to local 8080 and public port 443 to local 8443.
+TLS-ALPN-01 requires the TLS connection and its ALPN protocol to reach this
+server; a proxy that terminates TLS must instead allow HTTP-01 to reach the
+origin. Merely opening public port 8443 is not sufficient for ACME validation.
+
+The example's HTTP redirects target the domain's public HTTPS port 443, not
+8443. With forwarding in place, visit `https://your-domain.example/ping` and
+expect HTTP 204. Replace the sample domain with one you control and retain the
+certificate cache on persistent storage. The example handles SIGINT/SIGTERM to
+shut down both local listeners.
 
 ## Wildcard certificates
 
