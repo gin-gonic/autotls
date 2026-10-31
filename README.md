@@ -1,6 +1,6 @@
 # autotls
 
-[![Run Tests](https://github.com/gin-gonic/autotls/actions/workflows/go.yml/badge.svg)](https://github.com/gin-gonic/autotls/actions/workflows/go.yml)
+[![Lint and Testing](https://github.com/gin-gonic/autotls/actions/workflows/testing.yml/badge.svg)](https://github.com/gin-gonic/autotls/actions/workflows/testing.yml)
 [![Trivy Security Scan](https://github.com/gin-gonic/autotls/actions/workflows/trivy-scan.yml/badge.svg)](https://github.com/gin-gonic/autotls/actions/workflows/trivy-scan.yml)
 [![Go Reference](https://pkg.go.dev/badge/github.com/gin-gonic/autotls.svg)](https://pkg.go.dev/github.com/gin-gonic/autotls)
 
