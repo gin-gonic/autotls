@@ -68,7 +68,7 @@ func (h *dummyHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 // This test does not actually perform a real TLS handshake or certificate issuance.
 func TestRunWithContext_Cancel(t *testing.T) {
 	handler := &dummyHandler{}
-	ctx, cancel := context.WithTimeout(context.Background(), 100*time.Millisecond)
+	ctx, cancel := context.WithTimeout(t.Context(), 100*time.Millisecond)
 	defer cancel()
 
 	// Use a dummy domain; autocert will fail, but we expect context cancellation to trigger shutdown.
